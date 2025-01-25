@@ -12,6 +12,7 @@
       <ice4j.version>3.2-7-g4f13296</ice4j.version>
       <testng.version>7.10.2</testng.version>
       <java.websocket.version>1.6.0</java.websocket.version>
+      <json.version>20250107</json.version>
    </properties>
    <repositories>
       <repository>
@@ -34,6 +35,11 @@
          <groupId>org.java-websocket</groupId>
          <artifactId>Java-WebSocket</artifactId>
          <version>${java.websocket.version}</version>
+      </dependency>
+      <dependency>
+         <groupId>org.json</groupId>
+         <artifactId>json</artifactId>
+         <version>${json.version}</version>
       </dependency>
       <!-- TEST DEPENDENCIES -->
       <dependency>

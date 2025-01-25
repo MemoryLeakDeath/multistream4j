@@ -17,14 +17,14 @@ public class StunServer implements AutoCloseable {
     private TransportAddress localTurnServer = new TransportAddress(InetAddress.getLoopbackAddress(), TURN_PORT,
             Transport.UDP);
 
-    private void init() {
-        iceAgent = new Agent();
+    public Agent createIceAgent() {
+        Agent iceAgent = new Agent();
         iceAgent.addCandidateHarvester(new StunCandidateHarvester(localStunServer));
         iceAgent.addCandidateHarvester(new TurnCandidateHarvester(localTurnServer));
+        return iceAgent;
     }
 
     public void start() {
-        init();
         iceAgent.startConnectivityEstablishment();
     }
 

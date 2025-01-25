@@ -1,31 +1,60 @@
 package tv.memoryleakdeath.multistream4j.server;
 
+import org.ice4j.ice.Agent;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
+import org.json.JSONObject;
 
 import java.net.InetSocketAddress;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class WebRTCSignalingServer extends WebSocketServer {
-   private static final int WEBRTC_PORT = 9090;
-   private Set<WebSocket> connections;
+   private StunServer stunServer;
+   private Map<WebSocket, ClientSession> clientSessions;
 
-   public WebRTCSignalingServer() {
-      super(new InetSocketAddress(WEBRTC_PORT));
-      connections = Collections.synchronizedSet(new HashSet<>());
+   private class ClientSession {
+      private String sessionId;
+      private Agent iceAgent;
+      private WebSocket peerConnection;
+      private boolean isOfferSource;
+      private String streamId;
+
+      public ClientSession(Agent iceAgent, String sessionId) {
+         this.iceAgent = iceAgent;
+         this.sessionId = sessionId;
+      }
+   }
+
+   public WebRTCSignalingServer(int port, StunServer server) {
+      super(new InetSocketAddress(port));
+      stunServer = server;
+      clientSessions = new ConcurrentHashMap<>();
+      setReuseAddr(true);
    }
 
    @Override
    public void onOpen(WebSocket webSocket, ClientHandshake clientHandshake) {
-      connections.add(webSocket);
+      String sessionId = UUID.randomUUID().toString();
+      Agent iceAgent = stunServer.createIceAgent();
+      ClientSession session = new ClientSession(iceAgent, sessionId);
+      clientSessions.put(webSocket, session);
+
+      // connection established message
+      JSONObject establishedMessage = new JSONObject();
+      establishedMessage.put("type", "welcome");
+      establishedMessage.put("sessionId", sessionId);
+      establishedMessage.put("timestamp", System.currentTimeMillis());
+      webSocket.send(establishedMessage.toString());
    }
 
    @Override
    public void onClose(WebSocket webSocket, int i, String s, boolean b) {
-      connections.remove(webSocket);
+      ClientSession session = clientSessions.remove(webSocket);
+      if(session != null) {
+         session.iceAgent.free();
+      }
    }
 
    @Override
