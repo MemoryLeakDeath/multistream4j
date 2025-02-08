@@ -1,45 +1,47 @@
 package tv.memoryleakdeath.multistream4j.server;
 
 import org.ice4j.ice.Agent;
+import org.ice4j.ice.IceMediaStream;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.json.JSONObject;
+import org.opentelecoms.javax.sdp.NistSdpFactory;
+import tv.memoryleakdeath.multistream4j.service.TranscoderService;
 
+import javax.sdp.MediaDescription;
+import javax.sdp.SdpFactory;
+import javax.sdp.SessionDescription;
 import java.net.InetSocketAddress;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 public class WebRTCSignalingServer extends WebSocketServer {
    private StunServer stunServer;
-   private Map<WebSocket, ClientSession> clientSessions;
+   private WebSocket activeConnection;
+   private TranscoderService transcoderService;
+   private Agent iceAgent;
+   private IceMediaStream mediaStream;
+   private boolean isStreamActive;
 
-   private class ClientSession {
-      private String sessionId;
-      private Agent iceAgent;
-      private WebSocket peerConnection;
-      private boolean isOfferSource;
-      private String streamId;
-
-      public ClientSession(Agent iceAgent, String sessionId) {
-         this.iceAgent = iceAgent;
-         this.sessionId = sessionId;
-      }
-   }
 
    public WebRTCSignalingServer(int port, StunServer server) {
       super(new InetSocketAddress(port));
       stunServer = server;
-      clientSessions = new ConcurrentHashMap<>();
       setReuseAddr(true);
    }
 
    @Override
    public void onOpen(WebSocket webSocket, ClientHandshake clientHandshake) {
+      if(activeConnection != null) {
+         webSocket.close(-1, "Server full!");
+         return;
+      }
+      activeConnection = webSocket;
       String sessionId = UUID.randomUUID().toString();
-      Agent iceAgent = stunServer.createIceAgent();
-      ClientSession session = new ClientSession(iceAgent, sessionId);
-      clientSessions.put(webSocket, session);
+      iceAgent = stunServer.createIceAgent();
+      mediaStream = iceAgent.createMediaStream("stream");
+      stunServer.start();
+
 
       // connection established message
       JSONObject establishedMessage = new JSONObject();
@@ -51,9 +53,13 @@ public class WebRTCSignalingServer extends WebSocketServer {
 
    @Override
    public void onClose(WebSocket webSocket, int i, String s, boolean b) {
-      ClientSession session = clientSessions.remove(webSocket);
-      if(session != null) {
-         session.iceAgent.free();
+      if(webSocket == activeConnection) {
+         // stop stream
+         activeConnection = null;
+         if (iceAgent != null) {
+            iceAgent.free();
+            iceAgent = null;
+         }
       }
    }
 
@@ -61,29 +67,53 @@ public class WebRTCSignalingServer extends WebSocketServer {
    public void onMessage(WebSocket webSocket, String s) {
       JSONObject message = new JSONObject(s);
       String messageType = message.getString("type");
-      ClientSession session = clientSessions.get(webSocket);
 
-      if(session == null) {
+      if(webSocket != activeConnection) {
          throw new RuntimeException("Unknown message received on socket!");
       }
 
       switch (messageType) {
          case "offer":
-            break;
-         case "answer":
+            processOffer(message);
             break;
          case "ice-candidate":
-            break;
-         case "create-stream":
+            processIceCandidate(message);
             break;
          default:
             throw new RuntimeException("Unknown type parsed: %s".formatted(messageType));
       }
    }
 
-   private void processOffer(WebSocket webSocket, ClientSession session, JSONObject message) {
+   private void processOffer(JSONObject message) {
       String sessionDescriptionProto = message.getString("sdp");
-      session.isOfferSource = false;
+      // processSdpOffer
+
+      // respond to offer
+      JSONObject answer = new JSONObject();
+      answer.put("type", "answer");
+      answer.put("sdp", ""); // TODO createSdp
+      // send answer
+   }
+
+   private void doSdpOffer(String sdp) {
+      try {
+         SdpFactory factory = new NistSdpFactory();
+         SessionDescription desc = factory.createSessionDescription(sdp);
+         desc.getMediaDescriptions(true).forEach(md -> {
+            ((MediaDescription)md).getAttributes(true).forEach(attrib -> {
+               if(attrib.toString().startsWith("candidate:")) {
+                  // TODO finish
+               }
+            });
+         });
+      } catch(Exception e) {
+         // TODO do something
+      }
+   }
+
+   private void processIceCandidate(JSONObject message) {
+      JSONObject candidate = message.getJSONObject("candidate");
+      // process ICE candidate
    }
 
    @Override
