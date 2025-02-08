@@ -59,7 +59,31 @@ public class WebRTCSignalingServer extends WebSocketServer {
 
    @Override
    public void onMessage(WebSocket webSocket, String s) {
+      JSONObject message = new JSONObject(s);
+      String messageType = message.getString("type");
+      ClientSession session = clientSessions.get(webSocket);
 
+      if(session == null) {
+         throw new RuntimeException("Unknown message received on socket!");
+      }
+
+      switch (messageType) {
+         case "offer":
+            break;
+         case "answer":
+            break;
+         case "ice-candidate":
+            break;
+         case "create-stream":
+            break;
+         default:
+            throw new RuntimeException("Unknown type parsed: %s".formatted(messageType));
+      }
+   }
+
+   private void processOffer(WebSocket webSocket, ClientSession session, JSONObject message) {
+      String sessionDescriptionProto = message.getString("sdp");
+      session.isOfferSource = false;
    }
 
    @Override
