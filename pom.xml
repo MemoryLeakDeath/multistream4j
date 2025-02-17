@@ -10,7 +10,7 @@
       <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
       <ffmpeg4j.version>5.1.2-1.5.8-4</ffmpeg4j.version>
       <ice4j.version>3.2-7-g4f13296</ice4j.version>
-      <testng.version>7.10.2</testng.version>
+      <testng.version>7.11.0</testng.version>
       <java.websocket.version>1.6.0</java.websocket.version>
       <json.version>20250107</json.version>
    </properties>
